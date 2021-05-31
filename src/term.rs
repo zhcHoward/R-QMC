@@ -22,6 +22,16 @@ pub struct Term {
 }
 
 impl Term {
+    pub fn new(term: Vec<Val>, sources: Vec<u32>, flag: bool) -> Self {
+        let num = term.iter().filter(|v| **v == Val::T).count();
+        Self {
+            term,
+            sources,
+            num: num as u32,
+            flag: RefCell::new(flag),
+        }
+    }
+
     pub fn combine(&self, other: &Term) -> Option<Term> {
         let mut diff = 0;
         let length = max(self.term.len(), other.term.len());
@@ -49,12 +59,7 @@ impl Term {
                 other.flag.replace(true);
                 let mut new_sources = self.sources.clone();
                 new_sources.extend_from_slice(&other.sources);
-                Some(Term {
-                    term: new_term,
-                    num: self.num,
-                    sources: new_sources,
-                    flag: RefCell::new(false),
-                })
+                Some(Term::new(new_term, new_sources, false))
             }
             _ => None,
         }
