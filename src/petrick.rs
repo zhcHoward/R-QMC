@@ -121,3 +121,28 @@ impl Default for SumOfProduct {
         Self(HashSet::new())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::term::Val;
+
+    #[test]
+    fn test_find_essential_prime_implicants() {
+        let minterms: Vec<Term> = vec![4u8, 8, 10, 11, 12, 15]
+            .into_iter()
+            .map(|num| num.into())
+            .collect();
+        #[rustfmt::skip]
+        let pi = vec![
+            Term::new(vec![Val::F, Val::F, Val::T, Val::S], vec![4, 12], false),
+            Term::new(vec![Val::F, Val::S, Val::S, Val::T], vec![8, 10, 12, 14], false),
+            Term::new(vec![Val::S, Val::S, Val::F, Val::T], vec![8, 10, 9, 11], false),
+            Term::new(vec![Val::S, Val::T, Val::S, Val::T], vec![10, 11, 14, 15], false),
+        ];
+        let expected1 = vec![&pi[0], &pi[1], &pi[3]];
+        let expected2 = vec![&pi[0], &pi[2], &pi[3]];
+        let result = find_essential_prime_implicants(&pi, &minterms);
+        assert!(result == expected1 || result == expected2);
+    }
+}
