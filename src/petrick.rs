@@ -5,6 +5,7 @@ use std::{
 };
 
 use itertools::{iproduct, Itertools};
+use log::debug;
 
 use crate::{hashset, term::Term};
 
@@ -33,6 +34,7 @@ pub fn find_essential_prime_implicants<'a>(
     for value in prime_implicant_chart.values() {
         sop.multiply(value);
     }
+    debug!("sum of products: {:?}", sop);
 
     // find 1 shortest product among all the products
     let mut min_len = usize::MAX;
@@ -85,6 +87,7 @@ impl Hash for Product {
     }
 }
 
+#[derive(Debug)]
 struct SumOfProduct(HashSet<Product>);
 
 impl SumOfProduct {

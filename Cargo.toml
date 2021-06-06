@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 itertools = "0.10"
 structopt = "0.3"
+log4rs = "1.0"
+log = "0.4"
 
 [dev-dependencies]
 paste = "1.0"

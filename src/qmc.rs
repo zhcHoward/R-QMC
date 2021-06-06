@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::{iproduct, Itertools};
+use log::debug;
 
 use crate::{hashset, term::Term};
 
@@ -25,25 +26,31 @@ pub fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term>
         let mut new_table = HashMap::new();
         for key in table.keys().sorted() {
             let terms1 = table.get(key).unwrap();
-            if let Some(terms2) = table.get(&(key + 1)) {
-                for (t1, t2) in iproduct!(terms1, terms2) {
-                    // print!("{} + {}", t1, t2);
-                    match t1.combine(&t2) {
-                        None => {
-                            // println!(" = None");
-                            continue;
-                        }
-                        Some(new_term) => {
-                            // println!(" = {}", new_term);
-                            match new_table.get_mut(key) {
-                                None => {
-                                    new_table.insert(*key, hashset!(new_term));
-                                }
-                                Some(terms) => {
-                                    terms.insert(new_term);
-                                }
-                            };
-                            new_implicants = true;
+            match table.get(&(key + 1)) {
+                None => debug!("for key == {}, terms2 not exist, skip", key),
+                Some(terms2) => {
+                    debug!(
+                        "for key == {}, terms2 found, trying to combine terms...",
+                        key
+                    );
+                    for (t1, t2) in iproduct!(terms1, terms2) {
+                        match t1.combine(&t2) {
+                            None => {
+                                debug!("{} + {} => None", t1, t2);
+                                continue;
+                            }
+                            Some(new_term) => {
+                                debug!("{} + {} => {}", t1, t2, new_term);
+                                match new_table.get_mut(key) {
+                                    None => {
+                                        new_table.insert(*key, hashset!(new_term));
+                                    }
+                                    Some(terms) => {
+                                        terms.insert(new_term);
+                                    }
+                                };
+                                new_implicants = true;
+                            }
                         }
                     }
                 }
@@ -52,6 +59,7 @@ pub fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term>
             for term in terms1.iter() {
                 if !*term.flag.borrow() {
                     prime_implicants.push(term.clone());
+                    debug!("{} become prime implicant", term);
                 }
             }
         }

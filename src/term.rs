@@ -90,6 +90,12 @@ impl PartialEq for Term {
     }
 }
 
+impl AsRef<Term> for Term {
+    fn as_ref(&self) -> &Term {
+        self
+    }
+}
+
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.term
