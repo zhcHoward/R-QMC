@@ -92,21 +92,16 @@ impl PartialEq for Term {
 
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.term
-                .iter()
-                .map(|val| {
-                    match val {
-                        Val::T => "1",
-                        Val::F => "0",
-                        Val::S => "*",
-                    }
-                })
-                .rev()
-                .collect::<String>()
-        )
+        self.term
+            .iter()
+            .map(|val| match val {
+                Val::T => "1",
+                Val::F => "0",
+                Val::S => "*",
+            })
+            .rev()
+            .collect::<String>()
+            .fmt(f)
     }
 }
 
