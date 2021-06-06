@@ -1,10 +1,12 @@
 use itertools::{EitherOrBoth, Itertools};
 use std::{
     cell::RefCell,
-    cmp::{max, Eq, PartialEq},
+    collections::HashSet,
     fmt,
     hash::{Hash, Hasher},
 };
+
+use crate::hashset;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Val {
@@ -16,25 +18,22 @@ pub enum Val {
 #[derive(Debug, Clone, Eq)]
 pub struct Term {
     pub term: Vec<Val>,
-    pub num: u32, // number of `True`s in self.term
-    pub sources: Vec<u32>,
+    pub sources: HashSet<u32>,
     pub flag: RefCell<bool>,
 }
 
 impl Term {
-    pub fn new(term: Vec<Val>, sources: Vec<u32>, flag: bool) -> Self {
-        let num = term.iter().filter(|v| **v == Val::T).count();
+    pub fn new(term: Vec<Val>, sources: HashSet<u32>) -> Self {
         Self {
             term,
             sources,
-            num: num as u32,
-            flag: RefCell::new(flag),
+            flag: RefCell::new(false),
         }
     }
 
     pub fn combine(&self, other: &Term) -> Option<Term> {
         let mut diff = 0;
-        let length = max(self.term.len(), other.term.len());
+        let length = self.term.len().max(other.term.len());
         let mut new_term = Vec::with_capacity(length);
         for pair in self.term.iter().zip_longest(other.term.iter()) {
             let (val1, val2) = match pair {
@@ -57,12 +56,15 @@ impl Term {
             1 => {
                 self.flag.replace(true);
                 other.flag.replace(true);
-                let mut new_sources = self.sources.clone();
-                new_sources.extend_from_slice(&other.sources);
-                Some(Term::new(new_term, new_sources, false))
+                let new_sources = self.sources.union(&other.sources).cloned().collect();
+                Some(Term::new(new_term, new_sources))
             }
             _ => None,
         }
+    }
+
+    pub fn ones(&self) -> usize {
+        self.term.iter().filter(|v| **v == Val::T).count()
     }
 }
 
@@ -112,22 +114,17 @@ macro_rules! impl_From_for_Term {
     ($($t:ty)*) => ($(
         impl From<$t> for Term {
             fn from(mut num: $t) -> Self {
-                let sources = Vec::from([num as u32]);
+                let sources = hashset![num as u32];
                 let mut term = Vec::new();
-                let mut count = 0;
                 while num > 0 {
                     match num & 1 {
                         0 => term.push(Val::F),
-                        1 => {
-                            term.push(Val::T);
-                            count += 1;
-                        }
+                        1 => term.push(Val::T),
                         _ => unreachable!(),
                     }
                     num >>= 1;
                 }
-
-                Self {term, num: count, sources, flag: RefCell::new(false)}
+                Self::new(term, sources)
             }
         }
     )*)
@@ -148,12 +145,12 @@ mod test {
                 fn [<test_from_ $t _to_term>]() {
                     let num: $t = 14;
                     let term = Term::from(num);
-                    let expected = Vec::from([Val::F, Val::T, Val::T, Val::T]);
-                    assert_eq!(term.term, expected);
-                    assert_eq!(term.num, 3);
+                    let expected_term = vec![Val::F, Val::T, Val::T, Val::T];
+                    let expected_sources = hashset![num as u32];
+                    assert_eq!(term.term, expected_term);
+                    assert_eq!(term.sources, expected_sources);
                 }
             }
-
         )*)
     }
 

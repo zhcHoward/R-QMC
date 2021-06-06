@@ -1,25 +1,25 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_set::Iter, HashMap, HashSet},
     hash::{Hash, Hasher},
-    iter::FromIterator,
     mem,
 };
 
-use itertools::Itertools;
+use itertools::{iproduct, Itertools};
 
-use crate::term::Term;
+use crate::{hashset, term::Term};
 
 pub fn find_essential_prime_implicants<'a>(
     prime_implicants: &'a [Term],
     minterms: &[Term],
 ) -> Vec<&'a Term> {
-    let mut map = HashMap::new();
-    for key in minterms.iter().map(|term| term.sources[0]) {
-        map.insert(key, HashSet::new());
+    // generate prime implicant chart
+    let mut prime_implicant_chart = HashMap::new();
+    for key in minterms.iter().flat_map(|term| term.sources.iter()) {
+        prime_implicant_chart.insert(key, HashSet::new());
     }
     for (id, implicant) in prime_implicants.iter().enumerate() {
         for source in implicant.sources.iter() {
-            match map.get_mut(source) {
+            match prime_implicant_chart.get_mut(source) {
                 None => continue,
                 Some(value) => {
                     value.insert(id);
@@ -28,26 +28,29 @@ pub fn find_essential_prime_implicants<'a>(
         }
     }
 
-    let mut result = SumOfProduct::new();
-    for value in map.values() {
-        result.multiply(value);
+    // multiply all the sums in prime implicant chart without any simplification
+    let mut sop = SumOfProduct::new();
+    for value in prime_implicant_chart.values() {
+        sop.multiply(value);
     }
 
+    // find 1 shortest product among all the products
     let mut min_len = usize::MAX;
-    let mut ids = vec![];
-    for p in result.0.iter() {
-        let length = p.0.len();
+    let mut ids = Vec::new();
+    for p in sop.iter() {
+        let length = p.len();
         if length < min_len {
             min_len = length;
-            ids = Vec::from_iter(p.0.iter().map(|v| *v))
+            ids = p.iter().collect();
         }
     }
 
+    // collect all terms by their indexes in prime implicant list
     prime_implicants
         .iter()
         .enumerate()
-        .filter(|(id, _)| ids.contains(id))
-        .map(|a| a.1)
+        .filter(|(id, _)| ids.contains(&id))
+        .map(|(_, term)| term)
         .collect()
 }
 
@@ -56,15 +59,21 @@ struct Product(HashSet<usize>);
 
 impl Product {
     fn new(i: usize) -> Self {
-        let mut set = HashSet::new();
-        set.insert(i);
-        Self(set)
+        Self(hashset![i])
     }
 
     fn multiply(&self, i: usize) -> Product {
         let mut result = self.clone();
         result.0.insert(i);
         result
+    }
+
+    fn iter(&self) -> Iter<usize> {
+        self.0.iter()
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -76,35 +85,30 @@ impl Hash for Product {
     }
 }
 
-impl Default for Product {
-    fn default() -> Self {
-        Self(HashSet::new())
-    }
-}
-
 struct SumOfProduct(HashSet<Product>);
 
 impl SumOfProduct {
     fn new() -> Self {
-        Default::default()
+        Self(HashSet::new())
     }
 
-    fn multiply(&mut self, bs: &HashSet<usize>) {
+    fn multiply(&mut self, sum: &HashSet<usize>) {
         if self.0.is_empty() {
-            for b in bs {
-                let p = Product::new(*b);
-                self.0.insert(p);
+            for id in sum {
+                self.0.insert(Product::new(*id));
             }
         } else {
             let mut result = HashSet::new();
-            for p in &self.0 {
-                for i in bs {
-                    let new_p = p.multiply(*i);
-                    result.insert(new_p);
-                }
+            for (p, id) in iproduct!(&self.0, sum) {
+                let new_p = p.multiply(*id);
+                result.insert(new_p);
             }
             mem::swap(self, &mut Self(result));
         }
+    }
+
+    fn iter(&self) -> Iter<Product> {
+        self.0.iter()
     }
 }
 
@@ -113,12 +117,6 @@ impl Hash for SumOfProduct {
         for p in &self.0 {
             p.hash(state);
         }
-    }
-}
-
-impl Default for SumOfProduct {
-    fn default() -> Self {
-        Self(HashSet::new())
     }
 }
 
@@ -135,10 +133,10 @@ mod test {
             .collect();
         #[rustfmt::skip]
         let pi = vec![
-            Term::new(vec![Val::F, Val::F, Val::T, Val::S], vec![4, 12], false),
-            Term::new(vec![Val::F, Val::S, Val::S, Val::T], vec![8, 10, 12, 14], false),
-            Term::new(vec![Val::S, Val::S, Val::F, Val::T], vec![8, 10, 9, 11], false),
-            Term::new(vec![Val::S, Val::T, Val::S, Val::T], vec![10, 11, 14, 15], false),
+            Term::new(vec![Val::F, Val::F, Val::T, Val::S], hashset![4, 12]),
+            Term::new(vec![Val::F, Val::S, Val::S, Val::T], hashset![8, 10, 12, 14]),
+            Term::new(vec![Val::S, Val::S, Val::F, Val::T], hashset![8, 10, 9, 11]),
+            Term::new(vec![Val::S, Val::T, Val::S, Val::T], hashset![10, 11, 14, 15]),
         ];
         let expected1 = vec![&pi[0], &pi[1], &pi[3]];
         let expected2 = vec![&pi[0], &pi[2], &pi[3]];

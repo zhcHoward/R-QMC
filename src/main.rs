@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 mod petrick;
 mod term;
+mod utils;
 use term::Term;
 
 fn main() {
@@ -29,11 +30,10 @@ fn main() {
 fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term> {
     let mut table = HashMap::new();
     for term in minterms.iter().chain(not_cares.iter()) {
-        match table.get_mut(&term.num) {
+        let ones = term.ones();
+        match table.get_mut(&ones) {
             None => {
-                let mut terms = HashSet::new();
-                terms.insert(term.clone());
-                table.insert(term.num, terms);
+                table.insert(ones, hashset![term.clone()]);
             }
             Some(terms) => {
                 terms.insert(term.clone());
@@ -41,11 +41,11 @@ fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term> {
         }
     }
 
-    let mut new_table = HashMap::new();
     let mut prime_implicants = Vec::new();
     let mut new_implicants = true;
     while new_implicants {
         new_implicants = false;
+        let mut new_table = HashMap::new();
         for key in table.keys().sorted() {
             let terms1 = table.get(key).unwrap();
             if let Some(terms2) = table.get(&(key + 1)) {
@@ -60,9 +60,7 @@ fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term> {
                             // println!(" = {}", new_term);
                             match new_table.get_mut(key) {
                                 None => {
-                                    let mut new_terms = HashSet::new();
-                                    new_terms.insert(new_term);
-                                    new_table.insert(*key, new_terms);
+                                    new_table.insert(*key, hashset!(new_term));
                                 }
                                 Some(terms) => {
                                     terms.insert(new_term);
@@ -80,17 +78,17 @@ fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term> {
                 }
             }
         }
-        table = new_table.clone();
-        new_table.clear();
+        table = new_table;
     }
     prime_implicants
 }
 
 #[cfg(test)]
 mod test {
+    use std::iter::FromIterator;
+
     use super::*;
     use crate::term::Val;
-    use std::iter::FromIterator;
 
     #[test]
     fn test_find_prime_implicants_with_not_care() {
@@ -102,10 +100,10 @@ mod test {
         let prime_implicants = find_prime_implicants(&minterms, &not_cares);
         #[rustfmt::skip]
         let expected = vec![
-            Term::new(vec![Val::F, Val::F, Val::T, Val::S], vec![4, 12], false),
-            Term::new(vec![Val::F, Val::S, Val::S, Val::T], vec![8, 10, 12, 14], false),
-            Term::new(vec![Val::S, Val::S, Val::F, Val::T], vec![8, 10, 9, 11], false),
-            Term::new(vec![Val::S, Val::T, Val::S, Val::T], vec![10, 11, 14, 15], false),
+            Term::new(vec![Val::F, Val::F, Val::T, Val::S], hashset![4, 12]),
+            Term::new(vec![Val::F, Val::S, Val::S, Val::T], hashset![8, 10, 12, 14]),
+            Term::new(vec![Val::S, Val::S, Val::F, Val::T], hashset![8, 10, 9, 11]),
+            Term::new(vec![Val::S, Val::T, Val::S, Val::T], hashset![10, 11, 14, 15]),
         ];
         assert_eq!(
             HashSet::<_>::from_iter(prime_implicants.into_iter()),
@@ -122,12 +120,12 @@ mod test {
         let not_cares: Vec<Term> = Vec::new();
         let prime_implicants = find_prime_implicants(&minterms, &not_cares);
         let expected = vec![
-            Term::new(vec![Val::F, Val::T], vec![2], false),
-            Term::new(vec![Val::T, Val::F, Val::F, Val::S], vec![1, 9], false),
-            Term::new(vec![Val::T, Val::S, Val::F, Val::T], vec![9, 11], false),
-            Term::new(vec![Val::F, Val::S, Val::T, Val::T], vec![12, 14], false),
-            Term::new(vec![Val::S, Val::T, Val::T, Val::T], vec![14, 15], false),
-            Term::new(vec![Val::T, Val::T, Val::S, Val::T], vec![11, 15], false),
+            Term::new(vec![Val::F, Val::T], hashset![2]),
+            Term::new(vec![Val::T, Val::F, Val::F, Val::S], hashset![1, 9]),
+            Term::new(vec![Val::T, Val::S, Val::F, Val::T], hashset![9, 11]),
+            Term::new(vec![Val::F, Val::S, Val::T, Val::T], hashset![12, 14]),
+            Term::new(vec![Val::S, Val::T, Val::T, Val::T], hashset![14, 15]),
+            Term::new(vec![Val::T, Val::T, Val::S, Val::T], hashset![11, 15]),
         ];
         assert_eq!(
             HashSet::<_>::from_iter(prime_implicants.into_iter()),
