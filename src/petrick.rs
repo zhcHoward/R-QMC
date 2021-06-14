@@ -125,8 +125,9 @@ impl Hash for SumOfProduct {
 
 #[cfg(test)]
 mod test {
+    use std::convert::TryFrom;
+
     use super::*;
-    use crate::term::Val;
 
     #[test]
     fn test_find_essential_prime_implicants() {
@@ -134,16 +135,17 @@ mod test {
             .into_iter()
             .map(|num| num.into())
             .collect();
-        #[rustfmt::skip]
         let pi = vec![
-            Term::new(vec![Val::F, Val::F, Val::T, Val::S], hashset![4, 12]),
-            Term::new(vec![Val::F, Val::S, Val::S, Val::T], hashset![8, 10, 12, 14]),
-            Term::new(vec![Val::S, Val::S, Val::F, Val::T], hashset![8, 10, 9, 11]),
-            Term::new(vec![Val::S, Val::T, Val::S, Val::T], hashset![10, 11, 14, 15]),
+            Term::try_from("*100").unwrap(),
+            Term::try_from("1**0").unwrap(),
+            Term::try_from("10**").unwrap(),
+            Term::try_from("1*1*").unwrap(),
         ];
-        let expected1 = vec![&pi[0], &pi[1], &pi[3]];
-        let expected2 = vec![&pi[0], &pi[2], &pi[3]];
-        let result = find_essential_prime_implicants(&pi, &minterms);
+        let result = find_essential_prime_implicants(&pi, &minterms)
+            .into_iter()
+            .collect::<HashSet<&Term>>();
+        let expected1 = hashset![&pi[0], &pi[1], &pi[3]];
+        let expected2 = hashset![&pi[0], &pi[2], &pi[3]];
         assert!(result == expected1 || result == expected2);
     }
 }

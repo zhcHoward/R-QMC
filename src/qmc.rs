@@ -70,10 +70,9 @@ pub fn find_prime_implicants(minterms: &[Term], not_cares: &[Term]) -> Vec<Term>
 
 #[cfg(test)]
 mod test {
-    use std::iter::FromIterator;
+    use std::convert::TryFrom;
 
     use super::*;
-    use crate::term::Val;
 
     #[test]
     fn test_find_prime_implicants_with_not_care() {
@@ -83,16 +82,15 @@ mod test {
             .collect();
         let not_cares: Vec<Term> = vec![9u8, 14].into_iter().map(|num| num.into()).collect();
         let prime_implicants = find_prime_implicants(&minterms, &not_cares);
-        #[rustfmt::skip]
-        let expected = vec![
-            Term::new(vec![Val::F, Val::F, Val::T, Val::S], hashset![4, 12]),
-            Term::new(vec![Val::F, Val::S, Val::S, Val::T], hashset![8, 10, 12, 14]),
-            Term::new(vec![Val::S, Val::S, Val::F, Val::T], hashset![8, 10, 9, 11]),
-            Term::new(vec![Val::S, Val::T, Val::S, Val::T], hashset![10, 11, 14, 15]),
+        let expected = hashset![
+            Term::try_from("*100").unwrap(),
+            Term::try_from("1**0").unwrap(),
+            Term::try_from("10**").unwrap(),
+            Term::try_from("1*1*").unwrap(),
         ];
         assert_eq!(
-            HashSet::<_>::from_iter(prime_implicants.into_iter()),
-            HashSet::<_>::from_iter(expected.into_iter())
+            prime_implicants.into_iter().collect::<HashSet<Term>>(),
+            expected
         );
     }
 
@@ -104,17 +102,17 @@ mod test {
             .collect();
         let not_cares: Vec<Term> = Vec::new();
         let prime_implicants = find_prime_implicants(&minterms, &not_cares);
-        let expected = vec![
-            Term::new(vec![Val::F, Val::T], hashset![2]),
-            Term::new(vec![Val::T, Val::F, Val::F, Val::S], hashset![1, 9]),
-            Term::new(vec![Val::T, Val::S, Val::F, Val::T], hashset![9, 11]),
-            Term::new(vec![Val::F, Val::S, Val::T, Val::T], hashset![12, 14]),
-            Term::new(vec![Val::S, Val::T, Val::T, Val::T], hashset![14, 15]),
-            Term::new(vec![Val::T, Val::T, Val::S, Val::T], hashset![11, 15]),
+        let expected = hashset![
+            Term::try_from("0010").unwrap(),
+            Term::try_from("*001").unwrap(),
+            Term::try_from("10*1").unwrap(),
+            Term::try_from("11*0").unwrap(),
+            Term::try_from("111*").unwrap(),
+            Term::try_from("1*11").unwrap(),
         ];
         assert_eq!(
-            HashSet::<_>::from_iter(prime_implicants.into_iter()),
-            HashSet::<_>::from_iter(expected.into_iter())
+            prime_implicants.into_iter().collect::<HashSet<Term>>(),
+            expected
         );
     }
 }

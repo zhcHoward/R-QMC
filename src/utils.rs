@@ -2,7 +2,10 @@ use crate::term::Term;
 
 #[macro_export]
 macro_rules! hashset {
-    ( $($x:expr),* ) => {{
+    () => {
+        HashSet::new();
+    };
+    ( $($x:expr),+ $(,)?) => {{
         let mut set = HashSet::new();
         $(
             set.insert($x);
@@ -11,9 +14,13 @@ macro_rules! hashset {
     }};
 }
 
-pub fn format_terms<T: AsRef<Term>>(terms: &[T], max_len: usize) -> String {
+pub fn format_terms<I, T>(terms: I, max_len: usize) -> String
+where
+    I: IntoIterator<Item = T>,
+    T: AsRef<Term>,
+{
     let str_terms = terms
-        .iter()
+        .into_iter()
         .map(|t| format!("{:0>1$}", t.as_ref(), max_len))
         .collect::<Vec<String>>()
         .join(", ");

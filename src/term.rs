@@ -1,7 +1,8 @@
-use itertools::{EitherOrBoth, Itertools};
+use itertools::{repeat_n, EitherOrBoth, Itertools};
 use std::{
     cell::RefCell,
     collections::HashSet,
+    convert::TryFrom,
     fmt,
     hash::{Hash, Hasher},
 };
@@ -70,7 +71,12 @@ impl Term {
 
 impl Hash for Term {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.term.hash(state);
+        // If 2 terms share a same source, then these 2 terms are the same.
+        // Although, they may be in different form, e.g. "10" and "0010"
+        // So, `self.sources` is used instead of `self.term` to calculate the hash value.
+        for s in self.sources.iter().sorted() {
+            s.hash(state);
+        }
     }
 }
 
@@ -86,7 +92,7 @@ impl PartialEq for Term {
                 return false;
             }
         }
-        true
+        self.sources == other.sources
     }
 }
 
@@ -114,7 +120,8 @@ impl fmt::Display for Term {
 macro_rules! impl_From_for_Term {
     ($($t:ty)*) => ($(
         impl From<$t> for Term {
-            fn from(mut num: $t) -> Self {
+            fn from(num: $t) -> Self {
+                let mut num = num;
                 let sources = hashset![num as u32];
                 let mut term = Vec::new();
                 while num > 0 {
@@ -133,6 +140,48 @@ macro_rules! impl_From_for_Term {
 
 // u64 and u128 is too large for this algorithm, so ignore them
 impl_From_for_Term!(u8 u16 u32);
+
+impl TryFrom<&str> for Term {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut s_count = 0;
+        let mut term = value
+            .chars()
+            .map(|c| match c {
+                '1' => Ok(Val::T),
+                '0' => Ok(Val::F),
+                '*' => {
+                    s_count += 1;
+                    Ok(Val::S)
+                }
+                _ => Err("Invalid character in term"),
+            })
+            .collect::<Result<Vec<Val>, _>>()?;
+
+        let sources = match s_count == 0 {
+            true => hashset![u32::from_str_radix(value, 2).unwrap()],
+            false => repeat_n(0..2, s_count)
+                .multi_cartesian_product()
+                .map(|vals| {
+                    let mut ivals = vals.into_iter();
+                    term.iter()
+                        .map(|v| match v {
+                            Val::T => 1,
+                            Val::F => 0,
+                            Val::S => ivals.next().unwrap(),
+                        })
+                        .fold(0, |acc, v| (acc << 1) + v)
+                })
+                .collect(),
+        };
+
+        // println!("{:?}: {:?}", term, sources);
+
+        term.reverse();
+        Ok(Term::new(term, sources))
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -156,4 +205,29 @@ mod test {
     }
 
     test_From_for_Term!(u8 u16 u32);
+
+    #[test]
+    fn test_try_form_str_for_term() {
+        let s1 = "1*0*";
+        let s2 = "1234";
+        let s3 = "0010";
+        let t1 = Term::try_from(s1);
+        let t2 = Term::try_from(s2);
+        let t3 = Term::try_from(s3);
+        assert!(t1.is_ok());
+        assert_eq!(
+            t1.unwrap(),
+            Term::new(vec![Val::S, Val::F, Val::S, Val::T], hashset![8, 9, 12, 13])
+        );
+        assert!(t2.is_err());
+        assert!(t3.is_ok());
+        assert_eq!(t3.unwrap(), Term::new(vec![Val::F, Val::T], hashset![2]))
+    }
+
+    #[test]
+    fn test_equality_for_term() {
+        let t1 = Term::new(vec![Val::T, Val::F, Val::F], hashset![1]);
+        let t2 = Term::new(vec![Val::T], hashset![1]);
+        assert_eq!(t1, t2);
+    }
 }
