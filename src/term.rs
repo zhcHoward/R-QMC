@@ -176,8 +176,6 @@ impl TryFrom<&str> for Term {
                 .collect(),
         };
 
-        // println!("{:?}: {:?}", term, sources);
-
         term.reverse();
         Ok(Term::new(term, sources))
     }
